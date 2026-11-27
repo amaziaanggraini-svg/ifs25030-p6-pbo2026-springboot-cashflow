@@ -29,3 +29,10 @@ copy .env.example .env   # isi DB_*, ROOT_*, OPENAI_*
 
 ## Fitur
 Register/login/logout, tambah pemasukan/pengeluaran + bukti (zoom), cari/filter tipe/urutan (default terbaru), kartu saldo (`Rp 1,000,000.00`), hapus dengan konfirmasi, Generate AI (prompt → preview → simpan), profil, dan admin melihat transaksi user lain.
+
+## Deploy via Jenkins + Delcom
+1. `Jenkinsfile` dan `sonar-project.properties` sudah sesuai Spring Boot (Maven, Jacoco 100%, Trivy, SonarQube).
+2. Di Delcom, tab **.env** pada Website harus diisi (file `.env` tidak ikut ter-deploy karena ada di `.gitignore`):
+   `APP_PORT`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `ROOT_USERNAME`, `ROOT_PASSWORD`, `UPLOAD_DIR`, `OPENAI_*`.
+   `DB_HOST` harus host database Delcom, bukan `localhost`.
+3. Jangan pernah commit `.env` atau API key asli; `.env.example` hanya berisi placeholder.

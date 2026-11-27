@@ -20,6 +20,13 @@ spring:
 
 server:
   port: ${APP_PORT:${PORT:8080}}
+  # Aplikasi berjalan di belakang reverse proxy (nginx): hormati header X-Forwarded-*
+  forward-headers-strategy: framework
+  shutdown: graceful
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: text/html,text/css,application/javascript,text/javascript,application/json,image/svg+xml
   servlet:
     session:
       timeout: 8h
@@ -36,3 +43,6 @@ vaadin:
   launch-browser: false
   liveReload:
     enabled: true
+
+# Cache aset statis (ikon, css) agar skor Lighthouse Performance lebih baik
+spring.web.resources.cache.cachecontrol.max-age: 7d
