@@ -28,11 +28,13 @@ public enum SortOption {
             .thenComparing(Transaction::getId, Comparator.reverseOrder())),
 
     /** Pemasukan ditampilkan lebih dulu, lalu yang terbaru. */
-    INCOME_FIRST(Comparator.comparing(Transaction::getType)
+    INCOME_FIRST(Comparator
+            .comparing((Transaction t) -> t.getType() == TransactionType.INCOME ? 0 : 1)
             .thenComparing(Transaction::getId, Comparator.reverseOrder())),
 
     /** Pengeluaran ditampilkan lebih dulu, lalu yang terbaru. */
-    EXPENSE_FIRST(Comparator.comparing(Transaction::getType).reversed()
+    EXPENSE_FIRST(Comparator
+            .comparing((Transaction t) -> t.getType() == TransactionType.EXPENSE ? 0 : 1)
             .thenComparing(Transaction::getId, Comparator.reverseOrder()));
 
     /** Comparator yang digunakan untuk mengurutkan daftar transaksi. */

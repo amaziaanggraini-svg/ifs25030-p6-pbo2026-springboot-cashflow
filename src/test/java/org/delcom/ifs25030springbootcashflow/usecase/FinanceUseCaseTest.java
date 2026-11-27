@@ -88,7 +88,7 @@ class FinanceUseCaseTest {
 
         assertEquals(1, useCase.listTransactions(USER, "  GAJI ", TransactionTypeFilter.ALL, SortOption.NEWEST_FIRST).size());
         assertEquals(2, useCase.searchTransactions(USER, "makan").size());
-        assertEquals("Makan malam", useCase.sortTransactions(USER, SortOption.AMOUNT_DESC).get(0).getDescription());
+        assertEquals("Gaji bulanan", useCase.sortTransactions(USER, SortOption.AMOUNT_DESC).get(0).getDescription());
         assertEquals(4, useCase.getAllTransactions().size());
     }
 
