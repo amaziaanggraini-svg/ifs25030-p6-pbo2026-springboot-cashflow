@@ -23,6 +23,7 @@ copy .env.example .env   # isi DB_*, ROOT_*, OPENAI_*
 |---|---|---|
 | `/login`, `/register` | LoginView, RegisterView | Publik |
 | `/` | FinanceView | USER & ADMIN |
+| `/summary` | SummaryView | USER & ADMIN |
 | `/profile` | ProfileView | USER & ADMIN |
 | `/users` | UsersView | ADMIN |
 | `/user-transactions/{id}` | UserTransactionsView | ADMIN (read-only) |

@@ -1,6 +1,7 @@
 package org.delcom.ifs25030springbootcashflow;
 
 import com.vaadin.flow.component.dependency.StyleSheet;
+import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.page.AppShellConfigurator;
 import com.vaadin.flow.component.page.Meta;
 import com.vaadin.flow.server.PWA;
@@ -14,6 +15,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @Meta(name = "description",
         content = "Cashflow: aplikasi web pencatat pemasukan dan pengeluaran dengan ringkasan saldo, "
                 + "pencarian, pengurutan, bukti transaksi, dan Generate AI.")
+@JsModule("./a11y-fixes.js")
 @PWA(name = "Cashflow", shortName = "Cashflow", iconPath = "icons/icon.png")
 public class App implements AppShellConfigurator {
 

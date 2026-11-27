@@ -1,11 +1,15 @@
 package org.delcom.ifs25030springbootcashflow.framework.view;
 
-import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
+import com.vaadin.flow.component.HasElement;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.Header;
+import com.vaadin.flow.component.html.Main;
+import com.vaadin.flow.component.html.Nav;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -17,7 +21,6 @@ import com.vaadin.flow.router.AfterNavigationEvent;
 import com.vaadin.flow.router.AfterNavigationObserver;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
-import com.vaadin.flow.router.RouterLink;
 import org.delcom.ifs25030springbootcashflow.domain.entity.User;
 import org.delcom.ifs25030springbootcashflow.domain.repository.IUserRepository;
 import org.delcom.ifs25030springbootcashflow.framework.auth.AuthSession;
@@ -35,16 +38,29 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver, AfterN
     private final Image headerAvatarImage = new Image();
     private final Span headerAvatarInitial = new Span();
     private final Div headerAvatar = new Div();
+    /** Landmark utama: seluruh konten view dibungkus elemen main. */
+    private final Main mainContent = new Main();
 
-    private record NavEntry(RouterLink link, String pathPrefix) {
+    private record NavEntry(Anchor link, String pathPrefix) {
     }
 
     public MainLayout(IUserRepository userRepository) {
         this.userRepository = userRepository;
         setPrimarySection(Section.DRAWER);
         AuthSession.currentUser(userRepository);
+        mainContent.setSizeFull();
+        mainContent.getStyle().set("display", "block").set("box-sizing", "border-box");
+        setContent(mainContent);
         createHeader();
         createDrawer();
+    }
+
+    @Override
+    public void showRouterLayoutContent(HasElement content) {
+        mainContent.removeAll();
+        if (content != null) {
+            mainContent.getElement().appendChild(content.getElement());
+        }
     }
 
     private void createHeader() {
@@ -61,7 +77,8 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver, AfterN
         header.getStyle()
                 .set("background", "#FFFFFF")
                 .set("border-bottom", "1px solid #E5E7EB");
-        addToNavbar(header);
+        // Landmark banner
+        addToNavbar(new Header(header));
     }
 
     private HorizontalLayout appBrandTitle(String fontSize, String iconSize) {
@@ -243,21 +260,25 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver, AfterN
         menu.setSpacing(false);
         menu.getStyle().set("gap", "0.35rem").set("padding-top", "1rem");
 
-        menu.add(navItem("Cashflow Saya", FinanceView.class, "", VaadinIcon.WALLET));
-        menu.add(navItem("Profil", ProfileView.class, "profile", VaadinIcon.USER));
+        menu.add(navItem("Cashflow Saya", "", VaadinIcon.WALLET));
+        menu.add(navItem("Ringkasan", "summary", VaadinIcon.CHART));
+        menu.add(navItem("Profil", "profile", VaadinIcon.USER));
 
         AuthSession.currentUser()
                 .filter(User::isAdmin)
-                .ifPresent(user -> menu.add(navItem("Daftar Pengguna", UsersView.class, "users", VaadinIcon.USERS)));
+                .ifPresent(user -> menu.add(navItem("Daftar Pengguna", "users", VaadinIcon.USERS)));
 
         drawer.add(brand, menu);
         drawer.expand(menu);
-        addToDrawer(drawer);
+        // Landmark navigation
+        Nav nav = new Nav(drawer);
+        nav.getElement().setAttribute("aria-label", "Navigasi utama");
+        nav.setSizeFull();
+        addToDrawer(nav);
     }
 
-    private RouterLink navItem(
+    private Anchor navItem(
             String label,
-            Class<? extends Component> view,
             String pathPrefix,
             VaadinIcon iconType
     ) {
@@ -277,8 +298,9 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver, AfterN
         content.setPadding(false);
         content.getStyle().set("gap", "0.65rem");
 
-        RouterLink link = new RouterLink();
-        link.setRoute(view);
+        // Anchor dengan href absolut + router-link: navigasi client-side dan mudah ditemukan crawler
+        Anchor link = new Anchor("/" + pathPrefix);
+        link.getElement().setAttribute("router-link", true);
         link.add(content);
         link.getStyle()
                 .set("display", "block")
@@ -325,7 +347,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver, AfterN
                 active = true;
             }
 
-            RouterLink link = entry.link();
+            Anchor link = entry.link();
             if (active) {
                 link.getElement().setAttribute("data-active", "true");
                 link.getStyle()
@@ -342,7 +364,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver, AfterN
         }
     }
 
-    private void styleNavChildren(RouterLink link, String iconColor, String textColor, String weight) {
+    private void styleNavChildren(Anchor link, String iconColor, String textColor, String weight) {
         link.getChildren()
                 .filter(HorizontalLayout.class::isInstance)
                 .map(HorizontalLayout.class::cast)

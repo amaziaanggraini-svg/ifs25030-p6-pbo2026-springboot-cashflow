@@ -4,6 +4,7 @@ import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Paragraph;
@@ -16,7 +17,6 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.router.RouterLink;
 import org.delcom.ifs25030springbootcashflow.domain.entity.User;
 import org.delcom.ifs25030springbootcashflow.domain.exception.ValidationException;
 import org.delcom.ifs25030springbootcashflow.domain.repository.IUserRepository;
@@ -33,6 +33,8 @@ public class RegisterView extends VerticalLayout {
             return;
         }
 
+        // Landmark utama halaman (aksesibilitas: landmark-one-main & region)
+        getElement().setAttribute("role", "main");
         setSizeFull();
         setJustifyContentMode(JustifyContentMode.CENTER);
         setAlignItems(Alignment.CENTER);
@@ -86,7 +88,8 @@ public class RegisterView extends VerticalLayout {
         Paragraph subtitle = new Paragraph("Buat akun baru untuk mencatat cashflow.");
         subtitle.getStyle().set("margin", "0 0 0.15rem 0").set("color", "#4B5563");
 
-        RouterLink loginLink = new RouterLink("Sudah punya akun? Masuk", LoginView.class);
+        Anchor loginLink = new Anchor("/login", "Sudah punya akun? Masuk");
+        loginLink.getElement().setAttribute("router-link", true);
         loginLink.getStyle()
                 .set("align-self", "flex-end")
                 .set("text-align", "right")

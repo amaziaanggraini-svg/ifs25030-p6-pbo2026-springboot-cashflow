@@ -7,6 +7,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Paragraph;
@@ -106,7 +107,7 @@ public class FinanceView extends VerticalLayout {
         configureGrid();
         configureToolbar();
 
-        Div card = PageCard.wrap(title, buildSummaryCards(), buildToolbar(), statusLabel, grid);
+        Div card = PageCard.wrap(title, buildQuickLinks(), buildSummaryCards(), buildToolbar(), statusLabel, grid);
         add(card);
         expand(card);
         card.getStyle().set("min-height", "0");
@@ -115,6 +116,24 @@ public class FinanceView extends VerticalLayout {
 
     private User requireUser() {
         return AuthSession.currentUser().orElseThrow();
+    }
+
+    /** Tautan cepat ke halaman lain (href absolut agar mudah ditemukan crawler dan pembaca layar). */
+    private Div buildQuickLinks() {
+        Div links = new Div(quickLink("/summary", "Lihat Ringkasan"), quickLink("/profile", "Profil Saya"));
+        links.getStyle()
+                .set("display", "flex")
+                .set("gap", "1rem")
+                .set("flex-wrap", "wrap")
+                .set("font-size", "0.875rem");
+        return links;
+    }
+
+    private Anchor quickLink(String href, String text) {
+        Anchor anchor = new Anchor(href, text);
+        anchor.getElement().setAttribute("router-link", true);
+        anchor.getStyle().set("color", "#1D4ED8").set("font-weight", "600").set("cursor", "pointer");
+        return anchor;
     }
 
     private HorizontalLayout buildSummaryCards() {
