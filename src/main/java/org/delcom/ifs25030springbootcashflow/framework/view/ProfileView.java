@@ -8,8 +8,6 @@ import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -22,8 +20,7 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.streams.UploadHandler;
 import org.delcom.ifs25030springbootcashflow.adapter.storage.FileStorage;
 import org.delcom.ifs25030springbootcashflow.domain.entity.User;
-import org.delcom.ifs25030springbootcashflow.domain.exception.EntityNotFoundException;
-import org.delcom.ifs25030springbootcashflow.domain.exception.ValidationException;
+import org.delcom.ifs25030springbootcashflow.domain.exception.DomainException;
 import org.delcom.ifs25030springbootcashflow.framework.auth.AuthSession;
 import org.delcom.ifs25030springbootcashflow.usecase.UserUseCase;
 
@@ -31,46 +28,88 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 
+/** Halaman profil: ubah nama, password, dan foto profil. */
 @Route(value = "profile", layout = MainLayout.class)
 @PageTitle("Profil")
 public class ProfileView extends VerticalLayout {
 
+    private static final String PHOTO_SIZE = "120px";
+
     private final UserUseCase userUseCase;
     private final FileStorage fileStorage;
+    private final User user;
+
     private final Image photoPreview = new Image();
     private final Span photoInitial = new Span();
     private final Div photoFrame = new Div();
     private final Span photoPlaceholder = new Span("Belum ada foto profil. Upload foto di bawah.");
 
+    private final TextField fullName = new TextField("Nama Lengkap");
+    private final TextField username = new TextField("Username");
+    private final PasswordField password = new PasswordField("Password Baru (opsional)");
+    private final ProgressBar loadingBar = new ProgressBar();
+    private final Button savePhoto = new Button("Simpan Foto");
+    private final Button saveProfile = new Button("Simpan Profil");
+    private final AtomicReference<String> pendingPhotoName = new AtomicReference<>();
+    private final AtomicReference<byte[]> pendingPhotoData = new AtomicReference<>();
+
     public ProfileView(UserUseCase userUseCase, FileStorage fileStorage) {
         this.userUseCase = userUseCase;
         this.fileStorage = fileStorage;
+        this.user = AuthSession.currentUser().orElseThrow();
 
         setSizeFull();
         setPadding(true);
         setSpacing(false);
-        getStyle().set("background", "#F3F4F6");
+        getStyle().set(Ui.BACKGROUND, "#F3F4F6");
 
-        User user = AuthSession.currentUser().orElseThrow();
+        configureFields();
+        configurePhotoFrame();
+        refreshPhoto(user);
+        configureButtons();
 
-        TextField fullName = new TextField("Nama Lengkap");
+        H1 title = new H1("Profil");
+        title.getStyle().set("margin", "0");
+        Paragraph subtitle = new Paragraph("Perbarui nama, password, dan foto profil.");
+        subtitle.getStyle().set("margin", "0").set(Ui.COLOR, "#4B5563");
+
+        Span photoLabel = new Span("Foto Profil");
+        photoLabel.getStyle().set("font-weight", "600").set(Ui.COLOR, "#1F2937");
+
+        HorizontalLayout photoRow = new HorizontalLayout(photoFrame, photoPlaceholder);
+        photoRow.setAlignItems(FlexComponent.Alignment.CENTER);
+        photoRow.setSpacing(true);
+        photoRow.setWidthFull();
+
+        Div card = PageCard.wrap(false, title, subtitle, photoLabel, photoRow, createUpload(), savePhoto,
+                fullName, username, password, loadingBar, saveProfile);
+        card.getStyle().set("max-width", "560px");
+        add(card);
+    }
+
+    private void configureFields() {
         fullName.setWidthFull();
         fullName.setValue(user.getFullName());
-
-        TextField username = new TextField("Username");
         username.setWidthFull();
         username.setValue(user.getUsername());
         username.setReadOnly(true);
-
-        PasswordField password = new PasswordField("Password Baru (opsional)");
         password.setWidthFull();
 
-        configurePhotoFrame();
-        refreshPhoto(user);
+        loadingBar.setIndeterminate(true);
+        loadingBar.setVisible(false);
+        loadingBar.setWidthFull();
+    }
 
-        AtomicReference<String> pendingPhotoName = new AtomicReference<>();
-        AtomicReference<byte[]> pendingPhotoData = new AtomicReference<>();
+    private void configureButtons() {
+        savePhoto.getStyle().set(Ui.CURSOR, "pointer");
+        savePhoto.addClickListener(event -> onSavePhoto());
 
+        saveProfile.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        saveProfile.getStyle().set("margin-top", "0.5rem").set(Ui.CURSOR, "pointer");
+        saveProfile.addClickListener(event -> onSaveProfile());
+    }
+
+    private Upload createUpload() {
         Upload upload = new Upload(UploadHandler.inMemory((metadata, data) -> {
             pendingPhotoName.set(metadata.fileName());
             pendingPhotoData.set(data);
@@ -79,157 +118,108 @@ public class ProfileView extends VerticalLayout {
         upload.setAcceptedFileExtensions(".png", ".jpg", ".jpeg", ".webp");
         upload.setMaxFiles(1);
         upload.setWidthFull();
+        return upload;
+    }
 
-        ProgressBar loadingBar = new ProgressBar();
-        loadingBar.setIndeterminate(true);
-        loadingBar.setVisible(false);
-        loadingBar.setWidthFull();
+    private void setBusy(Button button, boolean busy) {
+        loadingBar.setVisible(busy);
+        button.setEnabled(!busy);
+    }
 
-        Button savePhoto = new Button("Simpan Foto");
-        savePhoto.getStyle().set("cursor", "pointer");
+    private boolean hasPendingPhoto() {
+        String filename = pendingPhotoName.get();
+        return filename != null && !filename.isBlank() && pendingPhotoData.get() != null;
+    }
 
-        Button saveProfile = new Button("Simpan Profil");
-        saveProfile.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        saveProfile.getStyle().set("margin-top", "0.5rem");
-        saveProfile.getStyle().set("cursor", "pointer");
+    private void onSavePhoto() {
+        setBusy(savePhoto, true);
+        if (!hasPendingPhoto()) {
+            setBusy(savePhoto, false);
+            Notifier.error("Pilih file foto terlebih dahulu");
+            return;
+        }
+        try {
+            String path = fileStorage.store(
+                    "profiles", pendingPhotoName.get(), new ByteArrayInputStream(pendingPhotoData.get()));
+            User updated = userUseCase.updatePhoto(user.getId(), path);
+            AuthSession.refresh(updated);
+            refreshPhoto(updated);
+            pendingPhotoName.set(null);
+            pendingPhotoData.set(null);
+            setBusy(savePhoto, false);
+            Notifier.success("Foto profil diperbarui");
+            UI.getCurrent().navigate(ProfileView.class);
+        } catch (DomainException | IOException ex) {
+            setBusy(savePhoto, false);
+            Notifier.error(ex.getMessage());
+        }
+    }
 
-        savePhoto.addClickListener(event -> {
-            loadingBar.setVisible(true);
-            savePhoto.setEnabled(false);
-            try {
-                String filename = pendingPhotoName.get();
-                byte[] data = pendingPhotoData.get();
-                if (filename == null || filename.isBlank() || data == null) {
-                    loadingBar.setVisible(false);
-                    savePhoto.setEnabled(true);
-                    showError("Pilih file foto terlebih dahulu");
-                    return;
-                }
-                String path = fileStorage.store("profiles", filename, new ByteArrayInputStream(data));
-                User updated = userUseCase.updatePhoto(user.getId(), path);
-                AuthSession.refresh(updated);
-                refreshPhoto(updated);
-                pendingPhotoName.set(null);
-                pendingPhotoData.set(null);
-                loadingBar.setVisible(false);
-                savePhoto.setEnabled(true);
-                showSuccess("Foto profil diperbarui");
-                UI.getCurrent().navigate(ProfileView.class);
-            } catch (ValidationException | EntityNotFoundException | IOException ex) {
-                loadingBar.setVisible(false);
-                savePhoto.setEnabled(true);
-                showError(ex.getMessage());
-            }
-        });
-
-        saveProfile.addClickListener(event -> {
-            loadingBar.setVisible(true);
-            saveProfile.setEnabled(false);
-            try {
-                User updated = userUseCase.updateProfile(user.getId(), fullName.getValue(), password.getValue());
-                AuthSession.refresh(updated);
-                password.clear();
-                loadingBar.setVisible(false);
-                saveProfile.setEnabled(true);
-                showSuccess("Profil diperbarui");
-            } catch (ValidationException | EntityNotFoundException ex) {
-                loadingBar.setVisible(false);
-                saveProfile.setEnabled(true);
-                showError(ex.getMessage());
-            }
-        });
-
-        H1 title = new H1("Profil");
-        title.getStyle().set("margin", "0");
-        Paragraph subtitle = new Paragraph("Perbarui nama, password, dan foto profil.");
-        subtitle.getStyle().set("margin", "0").set("color", "#4B5563");
-
-        Span photoLabel = new Span("Foto Profil");
-        photoLabel.getStyle().set("font-weight", "600").set("color", "#1F2937");
-
-        HorizontalLayout photoRow = new HorizontalLayout(photoFrame, photoPlaceholder);
-        photoRow.setAlignItems(FlexComponent.Alignment.CENTER);
-        photoRow.setSpacing(true);
-        photoRow.setWidthFull();
-
-        Div card = PageCard.wrap(
-                false,
-                title,
-                subtitle,
-                photoLabel,
-                photoRow,
-                upload,
-                savePhoto,
-                fullName,
-                username,
-                password,
-                loadingBar,
-                saveProfile);
-        card.getStyle().set("max-width", "560px");
-        add(card);
+    private void onSaveProfile() {
+        setBusy(saveProfile, true);
+        try {
+            User updated = userUseCase.updateProfile(user.getId(), fullName.getValue(), password.getValue());
+            AuthSession.refresh(updated);
+            password.clear();
+            setBusy(saveProfile, false);
+            Notifier.success("Profil diperbarui");
+        } catch (DomainException ex) {
+            setBusy(saveProfile, false);
+            Notifier.error(ex.getMessage());
+        }
     }
 
     private void configurePhotoFrame() {
-        photoPreview.setWidth("120px");
-        photoPreview.setHeight("120px");
+        photoPreview.setWidth(PHOTO_SIZE);
+        photoPreview.setHeight(PHOTO_SIZE);
         photoPreview.getStyle()
-                .set("border-radius", "50%")
+                .set(Ui.BORDER_RADIUS, Ui.V_50)
                 .set("object-fit", "cover")
                 .set("display", "block")
-                .set("cursor", "zoom-in");
+                .set(Ui.CURSOR, "zoom-in");
         photoPreview.getElement().setAttribute("title", "Klik untuk memperbesar");
         photoPreview.addClickListener(
                 event -> ImagePreviewDialog.open(photoPreview.getSrc(), photoPreview.getAlt().orElse("Foto profil")));
 
         photoInitial.getStyle()
-                .set("width", "120px")
-                .set("height", "120px")
-                .set("border-radius", "50%")
+                .set("width", PHOTO_SIZE)
+                .set("height", PHOTO_SIZE)
+                .set(Ui.BORDER_RADIUS, Ui.V_50)
                 .set("display", "inline-flex")
                 .set("align-items", "center")
                 .set("justify-content", "center")
-                .set("background", "#DBEAFE")
-                .set("color", "#1D4ED8")
+                .set(Ui.BACKGROUND, "#DBEAFE")
+                .set(Ui.COLOR, "#1D4ED8")
                 .set("font-weight", "700")
                 .set("font-size", "2.5rem");
 
         photoFrame.getStyle()
-                .set("width", "120px")
-                .set("height", "120px")
-                .set("border-radius", "50%")
+                .set("width", PHOTO_SIZE)
+                .set("height", PHOTO_SIZE)
+                .set(Ui.BORDER_RADIUS, Ui.V_50)
                 .set("overflow", "hidden")
                 .set("border", "3px solid #93C5FD")
                 .set("flex-shrink", "0")
-                .set("background", "#EFF6FF");
+                .set(Ui.BACKGROUND, "#EFF6FF");
 
-        photoPlaceholder.getStyle().set("color", "#6B7280");
+        photoPlaceholder.getStyle().set(Ui.COLOR, "#6B7280");
     }
 
-    private void refreshPhoto(User user) {
-        String initial = user.getFullName() == null || user.getFullName().isBlank()
-                ? user.getUsername().substring(0, 1).toUpperCase()
-                : user.getFullName().substring(0, 1).toUpperCase();
-        photoInitial.setText(initial);
+    private void refreshPhoto(User current) {
+        String name = current.getFullName() == null || current.getFullName().isBlank()
+                ? current.getUsername()
+                : current.getFullName();
+        photoInitial.setText(name.substring(0, 1).toUpperCase());
 
         photoFrame.removeAll();
-        if (user.getPhotoPath() == null || user.getPhotoPath().isBlank()) {
+        if (current.getPhotoPath() == null || current.getPhotoPath().isBlank()) {
             photoFrame.add(photoInitial);
             photoPlaceholder.setVisible(true);
             return;
         }
-        photoPreview.setSrc("/uploads/" + user.getPhotoPath() + "?t=" + System.currentTimeMillis());
-        photoPreview.setAlt(user.getFullName());
+        photoPreview.setSrc("/uploads/" + current.getPhotoPath() + "?t=" + System.currentTimeMillis());
+        photoPreview.setAlt(current.getFullName());
         photoFrame.add(photoPreview);
         photoPlaceholder.setVisible(false);
-    }
-
-    private void showSuccess(String message) {
-        Notification n = Notification.show(message, 3000, Notification.Position.BOTTOM_START);
-        n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-    }
-
-    private void showError(String message) {
-        Notification n = Notification.show(message, 4000, Notification.Position.BOTTOM_START);
-        n.addThemeVariants(NotificationVariant.LUMO_ERROR);
     }
 }

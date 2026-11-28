@@ -63,7 +63,7 @@ public class AuthUseCase {
                 ));
     }
 
-    private void validateCredentials(String username, String password, String fullName)
+    private static void validateCredentials(String username, String password, String fullName)
             throws ValidationException {
         if (username == null || username.trim().isEmpty()) {
             throw new ValidationException("Username tidak boleh kosong");

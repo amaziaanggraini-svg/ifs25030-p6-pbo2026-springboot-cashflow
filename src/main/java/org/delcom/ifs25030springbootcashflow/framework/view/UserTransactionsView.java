@@ -44,9 +44,9 @@ public class UserTransactionsView extends VerticalLayout implements HasUrlParame
         setSpacing(false);
         getStyle().set("background", "#F3F4F6");
 
-        title.getStyle().set("margin", "0");
-        balance.getStyle().set("margin", "0.25rem 0 0").set("font-weight", "600").set("color", "#1E40AF");
-        empty.getStyle().set("margin", "0").set("color", "#4B5563");
+        title.getStyle().set(Ui.MARGIN, "0");
+        balance.getStyle().set(Ui.MARGIN, "0.25rem 0 0").set("font-weight", "600").set("color", "#1E40AF");
+        empty.getStyle().set(Ui.MARGIN, "0").set("color", "#4B5563");
 
         grid.addColumn(Transaction::getId).setHeader("ID").setAutoWidth(true);
         grid.addColumn(Transaction::getDescription).setHeader("Keterangan").setFlexGrow(1);

@@ -18,6 +18,8 @@ import java.util.stream.Stream;
  * domain jika operasi tidak valid atau data tidak ditemukan.
  */
 public class FinanceUseCase {
+    private static final String AMOUNT_INVALID = "Jumlah harus berupa angka lebih dari 0";
+    private static final String ID_INVALID = "ID tidak valid";
     /** Port repository yang di-inject dari luar (Dependency Inversion). */
     private final ITransactionRepository transactionRepository;
 
@@ -86,14 +88,14 @@ public class FinanceUseCase {
      */
     public Long parseAmount(String raw) throws ValidationException {
         if (raw == null || raw.trim().isEmpty()) {
-            throw new ValidationException("Jumlah harus berupa angka lebih dari 0");
+            throw new ValidationException(AMOUNT_INVALID);
         }
         String cleaned = raw.trim().replace(",", "").replace(" ", "");
         if (cleaned.matches("\\d{1,3}(\\.\\d{3})+")) {
             cleaned = cleaned.replace(".", "");
         }
         if (!cleaned.matches("\\d{1,18}")) {
-            throw new ValidationException("Jumlah harus berupa angka lebih dari 0");
+            throw new ValidationException(AMOUNT_INVALID);
         }
         return Long.parseLong(cleaned);
     }
@@ -101,7 +103,7 @@ public class FinanceUseCase {
     /** Menghapus transaksi berdasarkan ID; melempar exception jika ID tidak valid / tidak ditemukan. */
     public void removeTransaction(int id) throws EntityNotFoundException, ValidationException {
         if (id <= 0) {
-            throw new ValidationException("ID tidak valid");
+            throw new ValidationException(ID_INVALID);
         }
         if (!transactionRepository.deleteById(id)) {
             throw new EntityNotFoundException(id);
@@ -136,7 +138,7 @@ public class FinanceUseCase {
         }
         if (amount != null) {
             if (amount <= 0) {
-                throw new ValidationException("Jumlah harus berupa angka lebih dari 0");
+                throw new ValidationException(AMOUNT_INVALID);
             }
             transaction.changeAmount(amount);
         }
@@ -182,7 +184,7 @@ public class FinanceUseCase {
     private Transaction requireOwnedTransaction(int userId, int id)
             throws EntityNotFoundException, ValidationException {
         if (id <= 0) {
-            throw new ValidationException("ID tidak valid");
+            throw new ValidationException(ID_INVALID);
         }
         Optional<Transaction> found = transactionRepository.findById(id);
         if (found.isEmpty()) {
@@ -195,12 +197,12 @@ public class FinanceUseCase {
         return transaction;
     }
 
-    private void validate(String description, Long amount) throws ValidationException {
+    private static void validate(String description, Long amount) throws ValidationException {
         if (description == null || description.trim().isEmpty()) {
             throw new ValidationException("Keterangan tidak boleh kosong");
         }
         if (amount == null || amount <= 0) {
-            throw new ValidationException("Jumlah harus berupa angka lebih dari 0");
+            throw new ValidationException(AMOUNT_INVALID);
         }
     }
 }

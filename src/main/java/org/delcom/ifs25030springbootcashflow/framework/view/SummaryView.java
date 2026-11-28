@@ -38,11 +38,11 @@ public class SummaryView extends VerticalLayout {
                 .set("box-sizing", "border-box");
 
         H1 title = new H1("Ringkasan Cashflow");
-        title.getStyle().set("margin", "0").set("font-size", "1.45rem").set("line-height", "1.2");
+        title.getStyle().set("margin", "0").set(Ui.FONT_SIZE, "1.45rem").set("line-height", "1.2");
 
         Anchor back = new Anchor("/", "Kembali ke Cashflow Saya");
         back.getElement().setAttribute("router-link", true);
-        back.getStyle().set("color", "#1D4ED8").set("font-weight", "600").set("font-size", "0.875rem");
+        back.getStyle().set(Ui.COLOR, "#1D4ED8").set("font-weight", "600").set(Ui.FONT_SIZE, "0.875rem");
 
         User user = AuthSession.currentUser().orElse(null);
         if (user == null) {
@@ -59,11 +59,11 @@ public class SummaryView extends VerticalLayout {
                 stat("Total Pengeluaran", presenter.formatMoney(expense), "#FEE2E2", "#991B1B"),
                 stat("Saldo", presenter.formatMoney(balance), "#DBEAFE", "#1E40AF")
         );
-        stats.getStyle().set("display", "flex").set("gap", "0.75rem").set("flex-wrap", "wrap");
+        stats.getStyle().set(Ui.DISPLAY, "flex").set("gap", "0.75rem").set("flex-wrap", "wrap");
 
         String ratio = income == 0 ? "-" : Math.round(expense * 100.0 / income) + "%";
         Paragraph ratioText = new Paragraph("Rasio pengeluaran terhadap pemasukan: " + ratio);
-        ratioText.getStyle().set("margin", "0").set("color", "#374151");
+        ratioText.getStyle().set("margin", "0").set(Ui.COLOR, "#374151");
 
         List<Transaction> top = financeUseCase
                 .listTransactions(user.getId(), null, TransactionTypeFilter.ALL, SortOption.AMOUNT_DESC)
@@ -84,11 +84,11 @@ public class SummaryView extends VerticalLayout {
         add(PageCard.wrap(title, back, stats, ratioText, grid));
     }
 
-    private Div stat(String label, String value, String background, String color) {
+    private static Div stat(String label, String value, String background, String color) {
         Span caption = new Span(label);
-        caption.getStyle().set("display", "block").set("font-size", "0.8rem").set("color", color);
+        caption.getStyle().set(Ui.DISPLAY, "block").set(Ui.FONT_SIZE, "0.8rem").set(Ui.COLOR, color);
         Span amount = new Span(value);
-        amount.getStyle().set("display", "block").set("font-size", "1.25rem").set("font-weight", "700").set("color", color);
+        amount.getStyle().set(Ui.DISPLAY, "block").set(Ui.FONT_SIZE, "1.25rem").set("font-weight", "700").set(Ui.COLOR, color);
         Div card = new Div(caption, amount);
         card.getStyle()
                 .set("flex", "1")

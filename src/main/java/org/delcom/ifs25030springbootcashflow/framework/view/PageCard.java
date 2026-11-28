@@ -30,11 +30,11 @@ final class PageCard {
 
         if (fullHeight) {
             body.setSizeFull();
-            body.getStyle().set("min-height", "0").set("flex", "1 1 auto");
+            body.getStyle().set(Ui.MIN_HEIGHT, "0").set("flex", "1 1 auto");
             if (content.length > 0) {
                 Component last = content[content.length - 1];
                 body.setFlexGrow(1, last);
-                last.getElement().getStyle().set("min-height", "0");
+                last.getElement().getStyle().set(Ui.MIN_HEIGHT, "0");
             }
         }
 
@@ -45,7 +45,7 @@ final class PageCard {
             card.getStyle()
                     .set("display", "flex")
                     .set("flex-direction", "column")
-                    .set("min-height", "0")
+                    .set(Ui.MIN_HEIGHT, "0")
                     .set("overflow", "hidden");
         }
         card.getStyle()

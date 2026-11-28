@@ -18,11 +18,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Implementasi IFinanceAiService yang memanggil endpoint OpenAI-compatible HTTP API.
  */
 public class OpenAiFinanceService implements IFinanceAiService {
+
+    private static final String CONTENT_KEY = "content";
 
     private final String endpoint;
     private final String apiKey;
@@ -82,7 +85,7 @@ public class OpenAiFinanceService implements IFinanceAiService {
         return parseAiResponse(response.body());
     }
 
-    private String normalizeEndpoint(String ep) {
+    private static String normalizeEndpoint(String ep) {
         String base = ep.endsWith("/") ? ep.substring(0, ep.length() - 1) : ep;
         if (base.endsWith("/chat/completions")) {
             return base;
@@ -105,32 +108,20 @@ public class OpenAiFinanceService implements IFinanceAiService {
             Map<String, Object> payload = Map.of(
                     "model", selectedModel,
                     "messages", List.of(
-                            Map.of("role", "system", "content", systemInstruction),
-                            Map.of("role", "user", "content", prompt)
+                            Map.of("role", "system", CONTENT_KEY, systemInstruction),
+                            Map.of("role", "user", CONTENT_KEY, prompt)
                     ),
                     "temperature", 0.3
             );
             return objectMapper.writeValueAsString(payload);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             throw new DomainException("Gagal menyusun request AI: " + e.getMessage());
         }
     }
 
     private List<AiGeneratedTransaction> parseAiResponse(String responseBody) throws DomainException {
         try {
-            JsonNode root = objectMapper.readTree(responseBody);
-            JsonNode choices = root.get("choices");
-            if (choices == null || choices.isEmpty()) {
-                throw new DomainException("Respon AI tidak memiliki pilihan (choices)");
-            }
-
-            JsonNode message = choices.get(0).get("message");
-            if (message == null || message.get("content") == null) {
-                throw new DomainException("Konten respon AI kosong");
-            }
-
-            String content = message.get("content").asText().trim();
-            content = stripMarkdownCodeFence(content);
+            String content = stripMarkdownCodeFence(extractContent(objectMapper.readTree(responseBody)));
 
             JsonNode arrayNode = objectMapper.readTree(content);
             if (!arrayNode.isArray()) {
@@ -139,34 +130,51 @@ public class OpenAiFinanceService implements IFinanceAiService {
 
             List<AiGeneratedTransaction> result = new ArrayList<>();
             for (JsonNode item : arrayNode) {
-                JsonNode descNode = item.get("description");
-                JsonNode amountNode = item.get("amount");
-                JsonNode typeNode = item.get("type");
-                if (descNode == null || descNode.asText().isBlank() || amountNode == null || typeNode == null) {
-                    continue;
-                }
-                long amount = amountNode.asLong(0);
-                TransactionType type = parseType(typeNode.asText());
-                if (amount <= 0 || type == null) {
-                    continue;
-                }
-                result.add(new AiGeneratedTransaction(descNode.asText().trim(), amount, type));
+                toTransaction(item).ifPresent(result::add);
             }
 
             if (result.isEmpty()) {
                 throw new DomainException("AI tidak menghasilkan daftar transaksi yang valid");
             }
-
             return result;
         } catch (DomainException e) {
             throw e;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             throw new DomainException("Gagal memproses respon dari AI: " + e.getMessage());
         }
     }
 
+    /** Mengambil teks konten pesan pertama dari respon chat completions. */
+    private static String extractContent(JsonNode root) throws DomainException {
+        JsonNode choices = root.get("choices");
+        if (choices == null || choices.isEmpty()) {
+            throw new DomainException("Respon AI tidak memiliki pilihan (choices)");
+        }
+        JsonNode message = choices.get(0).get("message");
+        if (message == null || message.get(CONTENT_KEY) == null) {
+            throw new DomainException("Konten respon AI kosong");
+        }
+        return message.get(CONTENT_KEY).asText().trim();
+    }
+
+    /** Mengubah satu elemen JSON menjadi transaksi; kosong jika elemen tidak valid. */
+    private static Optional<AiGeneratedTransaction> toTransaction(JsonNode item) {
+        JsonNode descNode = item.get("description");
+        JsonNode amountNode = item.get("amount");
+        JsonNode typeNode = item.get("type");
+        if (descNode == null || descNode.asText().isBlank() || amountNode == null || typeNode == null) {
+            return Optional.empty();
+        }
+        long amount = amountNode.asLong(0);
+        TransactionType type = parseType(typeNode.asText());
+        if (amount <= 0 || type == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new AiGeneratedTransaction(descNode.asText().trim(), amount, type));
+    }
+
     /** Memetakan teks tipe dari AI (Inggris/Indonesia) ke {@link TransactionType}; null jika tidak dikenal. */
-    private TransactionType parseType(String text) {
+    private static TransactionType parseType(String text) {
         String normalized = text.trim().toUpperCase(Locale.ROOT);
         if ("INCOME".equals(normalized) || "PEMASUKAN".equals(normalized)) {
             return TransactionType.INCOME;
@@ -177,7 +185,7 @@ public class OpenAiFinanceService implements IFinanceAiService {
         return null;
     }
 
-    private String stripMarkdownCodeFence(String text) {
+    private static String stripMarkdownCodeFence(String text) {
         String trimmed = text.trim();
         if (trimmed.startsWith("```")) {
             int firstNewline = trimmed.indexOf('\n');

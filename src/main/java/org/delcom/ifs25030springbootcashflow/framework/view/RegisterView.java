@@ -83,10 +83,10 @@ public class RegisterView extends VerticalLayout {
         password.addKeyUpListener(Key.ENTER, event -> submit.run());
 
         H1 title = new H1("Registrasi");
-        title.getStyle().set("margin", "0");
+        title.getStyle().set(Ui.MARGIN, "0");
 
         Paragraph subtitle = new Paragraph("Buat akun baru untuk mencatat cashflow.");
-        subtitle.getStyle().set("margin", "0 0 0.15rem 0").set("color", "#4B5563");
+        subtitle.getStyle().set(Ui.MARGIN, "0 0 0.15rem 0").set("color", "#4B5563");
 
         Anchor loginLink = new Anchor("/login", "Sudah punya akun? Masuk");
         loginLink.getElement().setAttribute("router-link", true);
@@ -108,9 +108,9 @@ public class RegisterView extends VerticalLayout {
         form.setSpacing(false);
         form.setWidthFull();
         form.getStyle().set("gap", "0.45rem");
-        fullName.getStyle().set("margin", "0");
-        username.getStyle().set("margin", "0");
-        password.getStyle().set("margin", "0");
+        fullName.getStyle().set(Ui.MARGIN, "0");
+        username.getStyle().set(Ui.MARGIN, "0");
+        password.getStyle().set(Ui.MARGIN, "0");
 
         Div card = new Div(form);
         card.getStyle()

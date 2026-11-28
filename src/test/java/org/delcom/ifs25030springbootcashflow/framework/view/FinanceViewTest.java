@@ -74,27 +74,24 @@ class FinanceViewTest {
     }
 
     @Test
-    void addFilterSearchSortAndDeleteFlow() throws Exception {
+    void addsIncomeAndExpenseAndUpdatesSummary() {
         assertTrue(_get(Paragraph.class).getText().contains("Data transaksi belum tersedia"));
         assertSummary("0", "Rp 0.00", "Rp 0.00", "Rp 0.00");
 
-        clickButton("Pemasukan");
-        Dialog incomeDialog = _get(Dialog.class);
-        _setValue(_get(incomeDialog, TextField.class, spec -> spec.withPlaceholder(DESC_INCOME)), "Gaji bulanan");
-        _setValue(_get(incomeDialog, TextField.class, spec -> spec.withPlaceholder(AMOUNT)), "5.000.000");
-        clickDialogButton(incomeDialog, "Simpan");
+        addTransactionViaDialog("Pemasukan", DESC_INCOME, "Gaji bulanan", "5.000.000");
         assertEquals(1, useCase.getTransactionsByUser(USER_ID).size());
         assertEquals("Daftar Transaksi · Terbaru", _get(Paragraph.class).getText());
 
-        clickButton("Pengeluaran");
-        Dialog expenseDialog = _get(Dialog.class);
-        _setValue(_get(expenseDialog, TextField.class, spec -> spec.withPlaceholder(DESC_EXPENSE)), "Makan siang");
-        _setValue(_get(expenseDialog, TextField.class, spec -> spec.withPlaceholder(AMOUNT)), "25000");
-        clickDialogButton(expenseDialog, "Simpan");
+        addTransactionViaDialog("Pengeluaran", DESC_EXPENSE, "Makan siang", "25000");
         assertEquals(2, useCase.getTransactionsByUser(USER_ID).size());
         assertSummary("2", "Rp 5,000,000.00", "Rp 25,000.00", "Rp 4,975,000.00");
+    }
 
+    @Test
+    void searchesAndFiltersTransactions() {
+        seedTwoTransactions();
         TextField searchField = _get(TextField.class, spec -> spec.withPlaceholder("Cari keterangan..."));
+
         _setValue(searchField, "tidakada");
         clickButton("Cari");
         assertTrue(_get(Paragraph.class).getText().contains("Transaksi tidak ditemukan"));
@@ -104,42 +101,45 @@ class FinanceViewTest {
         assertEquals("Hasil: \"Gaji\" · Terbaru", _get(Paragraph.class).getText());
 
         clickButton("Muat Ulang");
-        @SuppressWarnings("unchecked")
-        Grid<Transaction> grid = _get(Grid.class);
-        assertEquals(2, grid.getListDataView().getItemCount());
+        assertEquals(2, grid().getListDataView().getItemCount());
 
         @SuppressWarnings("unchecked")
         Select<TransactionTypeFilter> typeSelect = _get(Select.class, spec -> spec.withId("type-filter"));
         _setValue(typeSelect, TransactionTypeFilter.INCOME);
         clickButton("Cari");
-        assertEquals(1, grid.getListDataView().getItemCount());
+        assertEquals(1, grid().getListDataView().getItemCount());
         assertEquals("Daftar Transaksi · Pemasukan · Terbaru", _get(Paragraph.class).getText());
 
         clickButton("Muat Ulang");
-        assertEquals(2, grid.getListDataView().getItemCount());
+        assertEquals(2, grid().getListDataView().getItemCount());
+    }
+
+    @Test
+    void sortsGridAndDeletesTransaction() {
+        seedTwoTransactions();
+        Grid<Transaction> grid = grid();
 
         grid.sort(List.of(new GridSortOrder<>(grid.getColumnByKey("description"), SortDirection.DESCENDING)));
-        assertEquals("Makan siang", grid.getListDataView().getItems().toList().get(0).getDescription());
+        assertEquals("Makan siang", firstItem(grid).getDescription());
         grid.sort(List.of(new GridSortOrder<>(grid.getColumnByKey("amount"), SortDirection.ASCENDING)));
-        assertEquals("Makan siang", grid.getListDataView().getItems().toList().get(0).getDescription());
-        grid.sort(List.of(new GridSortOrder<>(grid.getColumnByKey("id"), SortDirection.ASCENDING)));
-        grid.sort(List.of(new GridSortOrder<>(grid.getColumnByKey("type"), SortDirection.ASCENDING)));
-        grid.sort(List.of(new GridSortOrder<>(grid.getColumnByKey("createdAt"), SortDirection.ASCENDING)));
+        assertEquals("Makan siang", firstItem(grid).getDescription());
+        for (String key : List.of("id", "type", "createdAt")) {
+            grid.sort(List.of(new GridSortOrder<>(grid.getColumnByKey(key), SortDirection.ASCENDING)));
+        }
 
         int row = indexOfDescription(grid, "Gaji bulanan");
         Span badge = (Span) _getCellComponent(grid, row, "type");
         assertEquals("Pemasukan", badge.getText());
         HorizontalLayout actions = (HorizontalLayout) _getCellComponent(grid, row, "tindakan");
         _click(_get(actions, Button.class, spec -> spec.withCaption("Hapus")));
-        Dialog deleteDialog = _get(Dialog.class);
-        clickDialogButton(deleteDialog, "Hapus");
+        clickDialogButton(_get(Dialog.class), "Hapus");
 
         assertEquals(1, useCase.getTransactionsByUser(USER_ID).size());
         assertSummary("1", "Rp 0.00", "Rp 25,000.00", "-Rp 25,000.00");
     }
 
     @Test
-    void rejectsInvalidInputAndAllowsCancel() throws Exception {
+    void rejectsInvalidInputAndAllowsCancel() {
         clickButton("Pemasukan");
         Dialog dialog = _get(Dialog.class);
         TextField description = _get(dialog, TextField.class, spec -> spec.withPlaceholder(DESC_INCOME));
@@ -199,6 +199,28 @@ class FinanceViewTest {
         clickDialogButton(dialog, "Proses AI");
         assertTrue(useCase.getTransactionsByUser(USER_ID).isEmpty());
         clickDialogButton(dialog, "Batal");
+    }
+
+    private void addTransactionViaDialog(String button, String descPlaceholder, String description, String amount) {
+        clickButton(button);
+        Dialog dialog = _get(Dialog.class);
+        _setValue(_get(dialog, TextField.class, spec -> spec.withPlaceholder(descPlaceholder)), description);
+        _setValue(_get(dialog, TextField.class, spec -> spec.withPlaceholder(AMOUNT)), amount);
+        clickDialogButton(dialog, "Simpan");
+    }
+
+    private void seedTwoTransactions() {
+        addTransactionViaDialog("Pemasukan", DESC_INCOME, "Gaji bulanan", "5000000");
+        addTransactionViaDialog("Pengeluaran", DESC_EXPENSE, "Makan siang", "25000");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Grid<Transaction> grid() {
+        return _get(Grid.class);
+    }
+
+    private static Transaction firstItem(Grid<Transaction> grid) {
+        return grid.getListDataView().getItems().toList().get(0);
     }
 
     private int indexOfDescription(Grid<Transaction> grid, String description) {
